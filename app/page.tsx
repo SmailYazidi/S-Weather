@@ -79,8 +79,8 @@ const translations = {
     maxTemp: "Max Temp",
     description: "Description",
     loading: "Loading weather data...",
-    fetchingLocation: "Fetching your location...",
-    locationDenied: "Location access denied. Please enable it in your browser settings or search for a city manually.",
+    fetchingLocation: "Detecting your location...", // Changed text
+    locationDenied: "Could not detect your location automatically. Please search for a city.", // Changed text
     locationNotFound: "Location not found. Please try a different search.",
     searchError: "Failed to search location. Please try again.",
     weatherError: "Failed to fetch weather data. Please try again.",
@@ -104,8 +104,8 @@ const translations = {
     maxTemp: "أعلى درجة حرارة",
     description: "الوصف",
     loading: "جاري تحميل بيانات الطقس...",
-    fetchingLocation: "جاري تحديد موقعك...",
-    locationDenied: "تم رفض الوصول إلى الموقع. يرجى تمكينه في إعدادات متصفحك أو البحث عن مدينة يدويًا.",
+    fetchingLocation: "جاري تحديد موقعك تلقائيًا...", // Changed text
+    locationDenied: "تعذر تحديد موقعك تلقائيًا. يرجى البحث عن مدينة.", // Changed text
     locationNotFound: "الموقع غير موجود. يرجى المحاولة بموقع آخر.",
     searchError: "فشل في البحث عن الموقع. يرجى المحاولة مرة أخرى.",
     weatherError: "فشل في جلب بيانات الطقس. يرجى المحاولة مرة أخرى.",
@@ -129,8 +129,8 @@ const translations = {
     maxTemp: "Temp Max",
     description: "Description",
     loading: "Chargement des données météo...",
-    fetchingLocation: "Recherche de votre position...",
-    locationDenied: "Accès à la position refusé. Veuillez l'activer dans les paramètres de votre navigateur ou rechercher une ville manuellement.",
+    fetchingLocation: "Détection automatique de votre position...", // Changed text
+    locationDenied: "Impossible de détecter votre position automatiquement. Veuillez rechercher une ville.", // Changed text
     locationNotFound: "Lieu non trouvé. Veuillez essayer une autre recherche.",
     searchError: "Échec de la recherche de lieu. Veuillez réessayer.",
     weatherError: "Échec de récupération des données météo. Veuillez réessayer.",
@@ -139,6 +139,33 @@ const translations = {
     returnTo7Day: "Retour aux prévisions 7 jours",
   },
 }
+
+// --- Function to get current location based on IP ---
+const getCurrentLocation = async (): Promise<LocationData | null> => {
+  try {
+    const response = await fetch(
+      `https://api.weatherapi.com/v1/ip.json?key=${API_KEY}&q=auto:ip`
+    );
+    if (!response.ok) {
+        const errorData = await response.json();
+        console.error("IP Location API Error:", errorData);
+        throw new Error("Failed to get current location via IP");
+    }
+
+    const data = await response.json();
+
+    return {
+      name: data.city,
+      country: data.country,
+      lat: data.lat,
+      lon: data.lon,
+    };
+  } catch (err) {
+    console.error("Location fetch error:", err);
+    return null;
+  }
+};
+
 
 export default function WeatherApp() {
   const [searchQuery, setSearchQuery] = useState("")
@@ -190,8 +217,6 @@ export default function WeatherApp() {
     setViewMode("7-day") // Always default to 7-day forecast when new data is fetched
 
     try {
-      // Use WeatherAPI.com's forecast endpoint which also handles location lookup
-      // days=7 for 7-day forecast, aqi=no, alerts=no for lighter response
       const weatherResponse = await fetch(
         `https://api.weatherapi.com/v1/forecast.json?key=${API_KEY}&q=${encodeURIComponent(query)}&days=7&aqi=no&alerts=no&lang=${language}`
       )
@@ -221,37 +246,23 @@ export default function WeatherApp() {
     }
   }, [t.locationNotFound, t.weatherError, language]) // Dependencies for useCallback
 
-  // --- Geolocation on Page Load ---
+  // --- Initial Location Fetch on Page Load (using getCurrentLocation) ---
   useEffect(() => {
     setError("")
     setIsLoading(true) // Ensure loading state is active
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords
-          // Fetch weather based on lat/lon from geolocation
-          fetchWeatherData(`${latitude},${longitude}`)
-        },
-        (err) => {
-          console.error("Geolocation error:", err)
-          setIsLoading(false) // Stop loading even if error
-          if (err.code === err.PERMISSION_DENIED) {
-            setError(t.locationDenied)
-          } else {
-            setError(t.fetchingLocation) // Generic error
-          }
-        },
-        {
-          enableHighAccuracy: false, // High accuracy can be slower
-          timeout: 10000, // 10 seconds timeout
-          maximumAge: 60000, // Use cached position if less than 1 minute old
+
+    const initializeLocation = async () => {
+        const detectedLocation = await getCurrentLocation();
+        if (detectedLocation) {
+            fetchWeatherData(`${detectedLocation.lat},${detectedLocation.lon}`);
+        } else {
+            setIsLoading(false);
+            setError(t.locationDenied); // Use the updated error message
         }
-      )
-    } else {
-      setIsLoading(false)
-      setError("Geolocation is not supported by your browser.")
-    }
-  }, [fetchWeatherData, t.locationDenied, t.fetchingLocation]) // Depend on fetchWeatherData and translations
+    };
+
+    initializeLocation();
+  }, [fetchWeatherData, t.locationDenied]); // Depend on fetchWeatherData and translations
 
   // --- Search Location Manually ---
   const handleSearch = async () => {
