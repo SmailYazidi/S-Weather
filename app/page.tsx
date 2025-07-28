@@ -1,0 +1,674 @@
+
+"use client"
+
+import { useState, useEffect } from "react"
+import { Search, MapPin, Thermometer, Wind, Droplets, Clock, Moon, Sun, Languages, Cloud } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
+const API_KEY = "f89347a1df5a4451afb202028252807" // Your WeatherAPI.com API Key
+
+interface WeatherData {
+  location: {
+    name: string
+    country: string
+    lat: number
+    lon: number
+    localtime_epoch: number
+  }
+  current: {
+    temp_c: number
+    condition: {
+      text: string
+      icon: string
+    }
+    wind_kph: number
+    humidity: number
+  }
+  forecast: {
+    forecastday: Array<{
+      date_epoch: number
+      day: {
+        maxtemp_c: number
+        mintemp_c: number
+        condition: {
+          text: string
+          icon: string
+        }
+      }
+      hour: Array<{
+        time_epoch: number
+        temp_c: number
+        condition: {
+          text: string
+          icon: string
+        }
+        wind_kph: number
+        humidity: number
+      }>
+    }>
+  }
+}
+
+interface LocationData {
+  name: string
+  country: string
+  lat: number
+  lon: number
+}
+
+type Language = "en" | "ar" | "fr"
+type Theme = "light" | "dark"
+
+const translations = {
+  en: {
+    appName: "S-Weather",
+    title: "Weather Forecast",
+    subtitle: "Get detailed weather information for any location",
+    searchPlaceholder: "Enter city name (e.g., London, New York, Tokyo)",
+    search: "Search",
+    currentWeather: "Current Weather",
+    sevenDayForecast: "7-Day Forecast",
+    clickDay: "Click on any day to see hourly forecast",
+    hourlyForecast: "Hourly Forecast for",
+    date: "Date",
+    weather: "Weather",
+    minTemp: "Min Temp",
+    maxTemp: "Max Temp",
+    description: "Description",
+    loading: "Loading weather data...",
+    locationNotFound: "Location not found. Please try a different search.",
+    searchError: "Failed to search location. Please try again.",
+    weatherError: "Failed to fetch weather data. Please try again.",
+    windSpeed: "Wind Speed",
+    humidity: "Humidity",
+  },
+  ar: {
+    appName: "إس-ويذر",
+    title: "توقعات الطقس",
+    subtitle: "احصل على معلومات مفصلة عن الطقس لأي موقع",
+    searchPlaceholder: "أدخل اسم المدينة (مثل: لندن، نيويورك، طوكيو)",
+    search: "بحث",
+    currentWeather: "الطقس الحالي",
+    sevenDayForecast: "توقعات 7 أيام",
+    clickDay: "انقر على أي يوم لرؤية التوقعات بالساعة",
+    hourlyForecast: "التوقعات بالساعة لـ",
+    date: "التاريخ",
+    weather: "الطقس",
+    minTemp: "أدنى درجة حرارة",
+    maxTemp: "أعلى درجة حرارة",
+    description: "الوصف",
+    loading: "جاري تحميل بيانات الطقس...",
+    locationNotFound: "الموقع غير موجود. يرجى المحاولة بموقع آخر.",
+    searchError: "فشل في البحث عن الموقع. يرجى المحاولة مرة أخرى.",
+    weatherError: "فشل في جلب بيانات الطقس. يرجى المحاولة مرة أخرى.",
+    windSpeed: "سرعة الرياح",
+    humidity: "الرطوبة",
+  },
+  fr: {
+    appName: "S-Météo",
+    title: "Prévisions Météo",
+    subtitle: "Obtenez des informations météorologiques détaillées pour n'importe quel endroit",
+    searchPlaceholder: "Entrez le nom de la ville (ex: Londres, New York, Tokyo)",
+    search: "Rechercher",
+    currentWeather: "Météo Actuelle",
+    sevenDayForecast: "Prévisions 7 Jours",
+    clickDay: "Cliquez sur n'importe quel jour pour voir les prévisions horaires",
+    hourlyForecast: "Prévisions Horaires pour",
+    date: "Date",
+    weather: "Météo",
+    minTemp: "Temp Min",
+    maxTemp: "Temp Max",
+    description: "Description",
+    loading: "Chargement des données météo...",
+    locationNotFound: "Lieu non trouvé. Veuillez essayer une autre recherche.",
+    searchError: "Échec de la recherche de lieu. Veuillez réessayer.",
+    weatherError: "Échec de récupération des données météo. Veuillez réessayer.",
+    windSpeed: "Vitesse du Vent",
+    humidity: "Humidité",
+  },
+}
+
+export default function WeatherApp() {
+  const [searchQuery, setSearchQuery] = useState("")
+  const [weatherData, setWeatherData] = useState<WeatherData | null>(null)
+  const [locationData, setLocationData] = useState<LocationData | null>(null)
+  const [selectedDay, setSelectedDay] = useState<number | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [isSearching, setIsSearching] = useState(false)
+  const [error, setError] = useState("")
+  const [theme, setTheme] = useState<Theme>("light")
+  const [language, setLanguage] = useState<Language>("en")
+
+  const t = translations[language]
+
+  // Load theme and language from localStorage
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("theme") as Theme
+    const savedLanguage = localStorage.getItem("language") as Language
+
+    if (savedTheme) setTheme(savedTheme)
+    if (savedLanguage) setLanguage(savedLanguage)
+  }, [])
+
+  // Apply theme to document
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", theme === "dark")
+    localStorage.setItem("theme", theme)
+  }, [theme])
+
+  // Save language to localStorage
+  useEffect(() => {
+    localStorage.setItem("language", language)
+    document.documentElement.dir = language === "ar" ? "rtl" : "ltr"
+  }, [language])
+
+  const toggleTheme = () => {
+    setTheme(theme === "light" ? "dark" : "light")
+  }
+
+  const searchLocation = async () => {
+    if (!searchQuery.trim()) return
+
+    setIsSearching(true)
+    setError("")
+    setWeatherData(null); // Clear previous weather data
+
+    try {
+      // WeatherAPI.com's /forecast endpoint also handles location search
+      const weatherResponse = await fetch(
+        `https://api.weatherapi.com/v1/forecast.json?key=${API_KEY}&q=${encodeURIComponent(searchQuery)}&days=7&aqi=no&alerts=no`
+      )
+
+      if (!weatherResponse.ok) {
+        if (weatherResponse.status === 400) {
+          const errorData = await weatherResponse.json();
+          if (errorData.error && errorData.error.code === 1006) {
+            setError(t.locationNotFound);
+            return;
+          }
+        }
+        throw new Error("Failed to fetch weather data");
+      }
+
+      const data: WeatherData = await weatherResponse.json()
+      setWeatherData(data)
+      setLocationData({
+        name: data.location.name,
+        country: data.location.country,
+        lat: data.location.lat,
+        lon: data.location.lon,
+      })
+      setSelectedDay(null)
+    } catch (err) {
+      setError(t.searchError)
+      console.error("Search error:", err)
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
+  // The fetchWeatherData function is now largely integrated into searchLocation
+  // but keeping it as a placeholder if you need to fetch by lat/lon explicitly later
+  const fetchWeatherData = async (lat: number, lon: number) => {
+    setIsLoading(true)
+    setError("")
+
+    try {
+      const weatherResponse = await fetch(
+        `https://api.weatherapi.com/v1/forecast.json?key=${API_KEY}&q=${lat},${lon}&days=7&aqi=no&alerts=no`
+      )
+
+      if (!weatherResponse.ok) {
+        throw new Error("Failed to fetch weather data")
+      }
+
+      const data: WeatherData = await weatherResponse.json()
+      setWeatherData(data)
+      setLocationData({
+        name: data.location.name,
+        country: data.location.country,
+        lat: data.location.lat,
+        lon: data.location.lon,
+      })
+      setSelectedDay(null)
+    } catch (err) {
+      setError(t.weatherError)
+      console.error("Weather fetch error:", err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const formatDate = (timestamp: number) => {
+    const locale = language === "ar" ? "ar-SA" : language === "fr" ? "fr-FR" : "en-US"
+    // WeatherAPI provides epoch time in seconds, Date expects milliseconds
+    return new Date(timestamp * 1000).toLocaleDateString(locale, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    })
+  }
+
+  const formatTime = (timestamp: number) => {
+    const locale = language === "ar" ? "ar-SA" : language === "fr" ? "fr-FR" : "en-US"
+    // WeatherAPI provides epoch time in seconds, Date expects milliseconds
+    return new Date(timestamp * 1000).toLocaleTimeString(locale, {
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  }
+
+  const getWeatherIcon = (iconUrl: string) => {
+    // WeatherAPI provides full URL for icons, sometimes they are missing 'https:'
+    if (iconUrl.startsWith('//')) {
+      return `https:${iconUrl}`;
+    }
+    return iconUrl;
+  }
+
+  const handleDayClick = (dayIndex: number) => {
+    setSelectedDay(selectedDay === dayIndex ? null : dayIndex)
+  }
+
+  const getHourlyDataForDay = (dayIndex: number) => {
+    if (!weatherData || !weatherData.forecast.forecastday[dayIndex]) return []
+    return weatherData.forecast.forecastday[dayIndex].hour
+  }
+
+  return (
+    <div
+      className={`min-h-screen transition-colors duration-300 ${
+        theme === "dark"
+          ? "bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white"
+          : "bg-gradient-to-br from-sky-100 via-blue-50 to-indigo-100 text-gray-900"
+      }`}
+    >
+      {/* Header */}
+      <header
+        className={`sticky top-0 z-50 backdrop-blur-md border-b transition-colors duration-300 ${
+          theme === "dark" ? "bg-slate-900/80 border-slate-700" : "bg-white/80 border-slate-200"
+        }`}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16 sm:h-20">
+            {/* Logo and App Name */}
+            <div className="flex items-center gap-3">
+              <div
+                className={`p-2 rounded-xl ${
+                  theme === "dark"
+                    ? "bg-gradient-to-br from-blue-500 to-purple-600"
+                    : "bg-gradient-to-br from-blue-500 to-sky-600"
+                } shadow-lg`}
+              >
+                <Cloud className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
+              </div>
+              <div>
+                <h1
+                  className={`text-xl sm:text-2xl font-bold bg-gradient-to-r ${
+                    theme === "dark" ? "from-blue-400 to-purple-400" : "from-blue-600 to-purple-600"
+                  } bg-clip-text text-transparent`}
+                >
+                  {t.appName}
+                </h1>
+                <p
+                  className={`text-xs sm:text-sm ${
+                    theme === "dark" ? "text-slate-400" : "text-slate-600"
+                  } hidden sm:block`}
+                >
+                  Weather Forecast App
+                </p>
+              </div>
+            </div>
+
+            {/* Controls */}
+            <div className="flex items-center gap-2 sm:gap-4">
+              {/* Language Selector */}
+              <Select value={language} onValueChange={(value: Language) => setLanguage(value)}>
+                <SelectTrigger
+                  className={`w-[100px] sm:w-[130px] ${
+                    theme === "dark"
+                      ? "bg-slate-800 border-slate-600 hover:bg-slate-700"
+                      : "bg-white border-slate-300 hover:bg-slate-50"
+                  }`}
+                >
+                  <Languages className="h-4 w-4 mr-2 shrink-0" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="en">🇺🇸 English</SelectItem>
+                  <SelectItem value="ar">🇸🇦 العربية</SelectItem>
+                  <SelectItem value="fr">🇫🇷 Français</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Theme Toggle */}
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={toggleTheme}
+                className={`shrink-0 ${
+                  theme === "dark"
+                    ? "bg-slate-800 border-slate-600 hover:bg-slate-700 text-yellow-400"
+                    : "bg-white border-slate-300 hover:bg-slate-50 text-slate-700"
+                }`}
+              >
+                {theme === "light" ? (
+                  <Moon className="h-4 w-4 transition-transform hover:rotate-12" />
+                ) : (
+                  <Sun className="h-4 w-4 transition-transform hover:rotate-12" />
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+        {/* Title Section */}
+        <div className="text-center mb-8 sm:mb-12">
+          <h2
+            className={`text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 bg-gradient-to-r ${
+              theme === "dark" ? "from-blue-400 via-purple-400 to-pink-400" : "from-blue-600 via-purple-600 to-pink-600"
+            } bg-clip-text text-transparent`}
+          >
+            {t.title}
+          </h2>
+          <p
+            className={`text-base sm:text-lg ${
+              theme === "dark" ? "text-slate-300" : "text-slate-600"
+            } max-w-2xl mx-auto`}
+          >
+            {t.subtitle}
+          </p>
+        </div>
+
+        {/* Search Section */}
+        <Card
+          className={`mb-6 sm:mb-8 shadow-xl ${
+            theme === "dark"
+              ? "bg-slate-800/50 border-slate-700 backdrop-blur-sm"
+              : "bg-white/70 border-slate-200 backdrop-blur-sm"
+          }`}
+        >
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <Input
+                  type="text"
+                  placeholder={t.searchPlaceholder}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyPress={(e) => e.key === "Enter" && searchLocation()}
+                  className={`text-base sm:text-lg h-12 ${
+                    theme === "dark"
+                      ? "bg-slate-700/50 border-slate-600 focus:border-blue-400"
+                      : "bg-white border-slate-300 focus:border-blue-500"
+                  }`}
+                />
+              </div>
+              <Button
+                onClick={searchLocation}
+                disabled={isSearching || !searchQuery.trim()}
+                className={`px-6 sm:px-8 h-12 w-full sm:w-auto font-semibold ${
+                  theme === "dark"
+                    ? "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                    : "bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
+                } text-white shadow-lg`}
+              >
+                {isSearching ? (
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                ) : (
+                  <Search className="h-5 w-5" />
+                )}
+                <span className="ml-2">{t.search}</span>
+              </Button>
+            </div>
+
+            {error && (
+              <div
+                className={`mt-4 p-4 rounded-lg border ${
+                  theme === "dark"
+                    ? "bg-red-900/30 border-red-800 text-red-300"
+                    : "bg-red-50 border-red-300 text-red-700"
+                }`}
+              >
+                {error}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Location Info */}
+        {locationData && (
+          <Card
+            className={`mb-4 sm:mb-6 shadow-lg ${
+              theme === "dark" ? "bg-slate-800/50 border-slate-700" : "bg-white/70 border-slate-200"
+            }`}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3 text-lg sm:text-xl font-semibold">
+                <MapPin
+                  className={`h-5 w-5 sm:h-6 sm:w-6 shrink-0 ${theme === "dark" ? "text-blue-400" : "text-blue-600"}`}
+                />
+                <span className="truncate">
+                  {locationData.name}, {locationData.country}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Loading State */}
+        {isLoading && (
+          <Card
+            className={`shadow-lg ${
+              theme === "dark" ? "bg-slate-800/50 border-slate-700" : "bg-white/70 border-slate-200"
+            }`}
+          >
+            <CardContent className="p-8 sm:p-12 text-center">
+              <div
+                className={`animate-spin rounded-full h-12 w-12 sm:h-16 sm:w-16 border-4 border-t-transparent mx-auto mb-6 ${
+                  theme === "dark" ? "border-blue-400" : "border-blue-600"
+                }`}
+              ></div>
+              <p className={`text-lg ${theme === "dark" ? "text-slate-300" : "text-slate-600"}`}>{t.loading}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Weather Data */}
+        {weatherData && !isLoading && (
+          <>
+            {/* Current Weather */}
+            <Card
+              className={`mb-6 shadow-xl ${
+                theme === "dark"
+                  ? "bg-gradient-to-br from-slate-800/80 to-slate-900/80 border-slate-700"
+                  : "bg-gradient-to-br from-white/80 to-blue-50/80 border-slate-200"
+              }`}
+            >
+              <CardHeader>
+                <CardTitle
+                  className={`flex items-center gap-3 text-xl sm:text-2xl ${
+                    theme === "dark" ? "text-blue-400" : "text-blue-600"
+                  }`}
+                >
+                  <Thermometer className="h-6 w-6" />
+                  {t.currentWeather}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
+                  <div className="flex items-center gap-6">
+                    <img
+                      src={getWeatherIcon(weatherData.current.condition.icon) || "/placeholder.svg"}
+                      alt={weatherData.current.condition.text}
+                      className="w-16 h-16 sm:w-20 sm:h-20"
+                    />
+                    <div>
+                      <div
+                        className={`text-4xl sm:text-5xl font-bold ${
+                          theme === "dark" ? "text-blue-300" : "text-blue-700"
+                        }`}
+                      >
+                        {Math.round(weatherData.current.temp_c)}°C
+                      </div>
+                      <div
+                        className={`text-base sm:text-lg capitalize ${
+                          theme === "dark" ? "text-slate-300" : "text-slate-600"
+                        }`}
+                      >
+                        {weatherData.current.condition.text}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-6 sm:gap-8 text-sm sm:text-base ml-auto">
+                    <div className="flex items-center gap-2">
+                      <Wind className={`h-5 w-5 ${theme === "dark" ? "text-blue-400" : "text-blue-600"}`} />
+                      <span>{weatherData.current.wind_kph} kph</span> {/* Changed to kph */}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Droplets className={`h-5 w-5 ${theme === "dark" ? "text-blue-400" : "text-blue-600"}`} />
+                      <span>{weatherData.current.humidity}%</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 7-Day Forecast */}
+            <Card
+              className={`mb-6 shadow-xl ${
+                theme === "dark" ? "bg-slate-800/50 border-slate-700" : "bg-white/70 border-slate-200"
+              }`}
+            >
+              <CardHeader>
+                <CardTitle
+                  className={`text-xl sm:text-2xl ${theme === "dark" ? "text-purple-400" : "text-purple-600"}`}
+                >
+                  {t.sevenDayForecast}
+                </CardTitle>
+                <p className={`text-sm ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>{t.clickDay}</p>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[600px]">
+                    <thead>
+                      <tr className={`border-b ${theme === "dark" ? "border-slate-600" : "border-slate-300"}`}>
+                        <th className="text-left py-3 px-2 text-sm sm:text-base font-semibold">{t.date}</th>
+                        <th className="text-left py-3 px-2 text-sm sm:text-base font-semibold">{t.weather}</th>
+                        <th className="text-left py-3 px-2 text-sm sm:text-base font-semibold">{t.minTemp}</th>
+                        <th className="text-left py-3 px-2 text-sm sm:text-base font-semibold">{t.maxTemp}</th>
+                        <th className="text-left py-3 px-2 text-sm sm:text-base font-semibold">{t.description}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {weatherData.forecast.forecastday.slice(0, 7).map((day, index) => (
+                        <tr
+                          key={day.date_epoch}
+                          className={`border-b cursor-pointer transition-all duration-200 ${
+                            theme === "dark"
+                              ? `border-slate-700 hover:bg-slate-700/50 ${
+                                  selectedDay === index ? "bg-purple-900/30" : ""
+                                }`
+                              : `border-slate-200 hover:bg-blue-50 ${selectedDay === index ? "bg-purple-50" : ""}`
+                          }`}
+                          onClick={() => handleDayClick(index)}
+                        >
+                          <td className="py-3 px-2 font-medium text-sm sm:text-base">{formatDate(day.date_epoch)}</td>
+                          <td className="py-3 px-2">
+                            <img
+                              src={getWeatherIcon(day.day.condition.icon) || "/placeholder.svg"}
+                              alt={day.day.condition.text}
+                              className="w-10 h-10 sm:w-12 sm:h-12"
+                            />
+                          </td>
+                          <td className="py-3 px-2 text-sm sm:text-base">{Math.round(day.day.mintemp_c)}°C</td>
+                          <td className="py-3 px-2 text-sm sm:text-base">{Math.round(day.day.maxtemp_c)}°C</td>
+                          <td className="py-3 px-2 capitalize text-sm sm:text-base">{day.day.condition.text}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Hourly Forecast */}
+            {selectedDay !== null && (
+              <Card
+                className={`shadow-xl ${
+                  theme === "dark" ? "bg-slate-800/50 border-slate-700" : "bg-white/70 border-slate-200"
+                }`}
+              >
+                <CardHeader>
+                  <CardTitle
+                    className={`flex items-center gap-3 text-xl sm:text-2xl ${
+                      theme === "dark" ? "text-green-400" : "text-green-600"
+                    }`}
+                  >
+                    <Clock className="h-6 w-6" />
+                    {t.hourlyForecast} {formatDate(weatherData.forecast.forecastday[selectedDay].date_epoch)}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {getHourlyDataForDay(selectedDay).map((hour) => (
+                      <div
+                        key={hour.time_epoch}
+                        className={`p-4 border rounded-xl shadow-lg transition-transform hover:scale-105 ${
+                          theme === "dark"
+                            ? "bg-gradient-to-br from-slate-700/80 to-slate-800/80 border-slate-600"
+                            : "bg-gradient-to-br from-white to-blue-50 border-slate-200"
+                        }`}
+                      >
+                        <div className="text-center">
+                          <div className="font-semibold text-lg mb-3">{formatTime(hour.time_epoch)}</div>
+                          <img
+                            src={getWeatherIcon(hour.condition.icon) || "/placeholder.svg"}
+                            alt={hour.condition.text}
+                            className="w-12 h-12 mx-auto mb-3"
+                          />
+                          <div
+                            className={`text-2xl font-bold mb-2 ${
+                              theme === "dark" ? "text-blue-300" : "text-blue-700"
+                            }`}
+                          >
+                            {Math.round(hour.temp_c)}°C
+                          </div>
+                          <div
+                            className={`text-sm capitalize mb-4 ${
+                              theme === "dark" ? "text-slate-300" : "text-slate-600"
+                            }`}
+                          >
+                            {hour.condition.text}
+                          </div>
+                          <div
+                            className={`space-y-2 text-sm ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}
+                          >
+                            <div className="flex items-center justify-center gap-2">
+                              <Wind className="h-4 w-4" />
+                              {hour.wind_kph} kph {/* Changed to kph */}
+                            </div>
+                            <div className="flex items-center justify-center gap-2">
+                              <Droplets className="h-4 w-4" />
+                              {hour.humidity}%
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </>
+        )}
+      </main>
+    </div>
+  )
+}
