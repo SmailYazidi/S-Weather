@@ -1,8 +1,7 @@
-
 "use client"
 
-import { useState, useEffect } from "react"
-import { Search, MapPin, Thermometer, Wind, Droplets, Clock, Moon, Sun, Languages, Cloud } from "lucide-react"
+import { useState, useEffect, useCallback } from "react"
+import { Search, MapPin, Thermometer, Wind, Droplets, Clock, Moon, Sun, Languages, Cloud, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -16,7 +15,7 @@ interface WeatherData {
     country: string
     lat: number
     lon: number
-    localtime_epoch: number
+    localtime_epoch: number // Current local time in Unix epoch
   }
   current: {
     temp_c: number
@@ -29,7 +28,7 @@ interface WeatherData {
   }
   forecast: {
     forecastday: Array<{
-      date_epoch: number
+      date_epoch: number // Day's date in Unix epoch
       day: {
         maxtemp_c: number
         mintemp_c: number
@@ -39,7 +38,7 @@ interface WeatherData {
         }
       }
       hour: Array<{
-        time_epoch: number
+        time_epoch: number // Hour's time in Unix epoch
         temp_c: number
         condition: {
           text: string
@@ -61,6 +60,7 @@ interface LocationData {
 
 type Language = "en" | "ar" | "fr"
 type Theme = "light" | "dark"
+type ViewMode = "7-day" | "hourly"
 
 const translations = {
   en: {
@@ -79,11 +79,14 @@ const translations = {
     maxTemp: "Max Temp",
     description: "Description",
     loading: "Loading weather data...",
+    fetchingLocation: "Fetching your location...",
+    locationDenied: "Location access denied. Please enable it in your browser settings or search for a city manually.",
     locationNotFound: "Location not found. Please try a different search.",
     searchError: "Failed to search location. Please try again.",
     weatherError: "Failed to fetch weather data. Please try again.",
     windSpeed: "Wind Speed",
     humidity: "Humidity",
+    returnTo7Day: "Return to 7-Day Forecast",
   },
   ar: {
     appName: "إس-ويذر",
@@ -101,11 +104,14 @@ const translations = {
     maxTemp: "أعلى درجة حرارة",
     description: "الوصف",
     loading: "جاري تحميل بيانات الطقس...",
+    fetchingLocation: "جاري تحديد موقعك...",
+    locationDenied: "تم رفض الوصول إلى الموقع. يرجى تمكينه في إعدادات متصفحك أو البحث عن مدينة يدويًا.",
     locationNotFound: "الموقع غير موجود. يرجى المحاولة بموقع آخر.",
     searchError: "فشل في البحث عن الموقع. يرجى المحاولة مرة أخرى.",
     weatherError: "فشل في جلب بيانات الطقس. يرجى المحاولة مرة أخرى.",
     windSpeed: "سرعة الرياح",
     humidity: "الرطوبة",
+    returnTo7Day: "العودة إلى توقعات 7 أيام",
   },
   fr: {
     appName: "S-Météo",
@@ -123,11 +129,14 @@ const translations = {
     maxTemp: "Temp Max",
     description: "Description",
     loading: "Chargement des données météo...",
+    fetchingLocation: "Recherche de votre position...",
+    locationDenied: "Accès à la position refusé. Veuillez l'activer dans les paramètres de votre navigateur ou rechercher une ville manuellement.",
     locationNotFound: "Lieu non trouvé. Veuillez essayer une autre recherche.",
     searchError: "Échec de la recherche de lieu. Veuillez réessayer.",
     weatherError: "Échec de récupération des données météo. Veuillez réessayer.",
     windSpeed: "Vitesse du Vent",
     humidity: "Humidité",
+    returnTo7Day: "Retour aux prévisions 7 jours",
   },
 }
 
@@ -135,22 +144,23 @@ export default function WeatherApp() {
   const [searchQuery, setSearchQuery] = useState("")
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null)
   const [locationData, setLocationData] = useState<LocationData | null>(null)
-  const [selectedDay, setSelectedDay] = useState<number | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null)
+  const [isLoading, setIsLoading] = useState(true) // Start with loading for initial geolocation
   const [isSearching, setIsSearching] = useState(false)
   const [error, setError] = useState("")
   const [theme, setTheme] = useState<Theme>("light")
   const [language, setLanguage] = useState<Language>("en")
+  const [viewMode, setViewMode] = useState<ViewMode>("7-day")
 
   const t = translations[language]
 
   // Load theme and language from localStorage
   useEffect(() => {
-    const savedTheme = localStorage.getItem("theme") as Theme
-    const savedLanguage = localStorage.getItem("language") as Language
+    const savedTheme = (localStorage.getItem("theme") as Theme) || "light"
+    const savedLanguage = (localStorage.getItem("language") as Language) || "en"
 
-    if (savedTheme) setTheme(savedTheme)
-    if (savedLanguage) setLanguage(savedLanguage)
+    setTheme(savedTheme)
+    setLanguage(savedLanguage)
   }, [])
 
   // Apply theme to document
@@ -159,7 +169,7 @@ export default function WeatherApp() {
     localStorage.setItem("theme", theme)
   }, [theme])
 
-  // Save language to localStorage
+  // Save language to localStorage and set text direction
   useEffect(() => {
     localStorage.setItem("language", language)
     document.documentElement.dir = language === "ar" ? "rtl" : "ltr"
@@ -169,59 +179,29 @@ export default function WeatherApp() {
     setTheme(theme === "light" ? "dark" : "light")
   }
 
-  const searchLocation = async () => {
-    if (!searchQuery.trim()) return
-
-    setIsSearching(true)
-    setError("")
-    setWeatherData(null); // Clear previous weather data
-
-    try {
-      // WeatherAPI.com's /forecast endpoint also handles location search
-      const weatherResponse = await fetch(
-        `https://api.weatherapi.com/v1/forecast.json?key=${API_KEY}&q=${encodeURIComponent(searchQuery)}&days=7&aqi=no&alerts=no`
-      )
-
-      if (!weatherResponse.ok) {
-        if (weatherResponse.status === 400) {
-          const errorData = await weatherResponse.json();
-          if (errorData.error && errorData.error.code === 1006) {
-            setError(t.locationNotFound);
-            return;
-          }
-        }
-        throw new Error("Failed to fetch weather data");
-      }
-
-      const data: WeatherData = await weatherResponse.json()
-      setWeatherData(data)
-      setLocationData({
-        name: data.location.name,
-        country: data.location.country,
-        lat: data.location.lat,
-        lon: data.location.lon,
-      })
-      setSelectedDay(null)
-    } catch (err) {
-      setError(t.searchError)
-      console.error("Search error:", err)
-    } finally {
-      setIsSearching(false)
-    }
-  }
-
-  // The fetchWeatherData function is now largely integrated into searchLocation
-  // but keeping it as a placeholder if you need to fetch by lat/lon explicitly later
-  const fetchWeatherData = async (lat: number, lon: number) => {
+  // --- Fetch Weather Data Function ---
+  const fetchWeatherData = useCallback(async (query: string) => {
     setIsLoading(true)
+    setIsSearching(false) // Reset search state if this is called from initial load
     setError("")
+    setWeatherData(null) // Clear previous data
+    setLocationData(null) // Clear previous location data
+    setSelectedDayIndex(null)
+    setViewMode("7-day") // Always default to 7-day forecast when new data is fetched
 
     try {
+      // Use WeatherAPI.com's forecast endpoint which also handles location lookup
+      // days=7 for 7-day forecast, aqi=no, alerts=no for lighter response
       const weatherResponse = await fetch(
-        `https://api.weatherapi.com/v1/forecast.json?key=${API_KEY}&q=${lat},${lon}&days=7&aqi=no&alerts=no`
+        `https://api.weatherapi.com/v1/forecast.json?key=${API_KEY}&q=${encodeURIComponent(query)}&days=7&aqi=no&alerts=no&lang=${language}`
       )
 
       if (!weatherResponse.ok) {
+        const errorData = await weatherResponse.json()
+        if (errorData.error && errorData.error.code === 1006) {
+          setError(t.locationNotFound)
+          return
+        }
         throw new Error("Failed to fetch weather data")
       }
 
@@ -233,18 +213,60 @@ export default function WeatherApp() {
         lat: data.location.lat,
         lon: data.location.lon,
       })
-      setSelectedDay(null)
     } catch (err) {
-      setError(t.weatherError)
       console.error("Weather fetch error:", err)
+      setError(t.weatherError)
     } finally {
       setIsLoading(false)
     }
+  }, [t.locationNotFound, t.weatherError, language]) // Dependencies for useCallback
+
+  // --- Geolocation on Page Load ---
+  useEffect(() => {
+    setError("")
+    setIsLoading(true) // Ensure loading state is active
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords
+          // Fetch weather based on lat/lon from geolocation
+          fetchWeatherData(`${latitude},${longitude}`)
+        },
+        (err) => {
+          console.error("Geolocation error:", err)
+          setIsLoading(false) // Stop loading even if error
+          if (err.code === err.PERMISSION_DENIED) {
+            setError(t.locationDenied)
+          } else {
+            setError(t.fetchingLocation) // Generic error
+          }
+        },
+        {
+          enableHighAccuracy: false, // High accuracy can be slower
+          timeout: 10000, // 10 seconds timeout
+          maximumAge: 60000, // Use cached position if less than 1 minute old
+        }
+      )
+    } else {
+      setIsLoading(false)
+      setError("Geolocation is not supported by your browser.")
+    }
+  }, [fetchWeatherData, t.locationDenied, t.fetchingLocation]) // Depend on fetchWeatherData and translations
+
+  // --- Search Location Manually ---
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return
+
+    setIsSearching(true)
+    setError("") // Clear existing errors
+    await fetchWeatherData(searchQuery.trim()) // Use the main fetch function
+    setIsSearching(false)
   }
 
+  // --- Date and Time Formatting ---
   const formatDate = (timestamp: number) => {
     const locale = language === "ar" ? "ar-SA" : language === "fr" ? "fr-FR" : "en-US"
-    // WeatherAPI provides epoch time in seconds, Date expects milliseconds
+    // WeatherAPI.com epoch is in seconds, Date expects milliseconds
     return new Date(timestamp * 1000).toLocaleDateString(locale, {
       weekday: "short",
       month: "short",
@@ -254,7 +276,7 @@ export default function WeatherApp() {
 
   const formatTime = (timestamp: number) => {
     const locale = language === "ar" ? "ar-SA" : language === "fr" ? "fr-FR" : "en-US"
-    // WeatherAPI provides epoch time in seconds, Date expects milliseconds
+    // WeatherAPI.com epoch is in seconds, Date expects milliseconds
     return new Date(timestamp * 1000).toLocaleTimeString(locale, {
       hour: "2-digit",
       minute: "2-digit",
@@ -262,20 +284,40 @@ export default function WeatherApp() {
   }
 
   const getWeatherIcon = (iconUrl: string) => {
-    // WeatherAPI provides full URL for icons, sometimes they are missing 'https:'
+    // WeatherAPI.com provides full URLs, sometimes they are missing 'https:'
     if (iconUrl.startsWith('//')) {
       return `https:${iconUrl}`;
     }
     return iconUrl;
   }
 
+  // --- Handle Day Click for Hourly View ---
   const handleDayClick = (dayIndex: number) => {
-    setSelectedDay(selectedDay === dayIndex ? null : dayIndex)
+    setSelectedDayIndex(dayIndex)
+    setViewMode("hourly")
   }
 
+  // --- Get Hourly Data for Selected Day (and filter past hours for current day) ---
   const getHourlyDataForDay = (dayIndex: number) => {
     if (!weatherData || !weatherData.forecast.forecastday[dayIndex]) return []
-    return weatherData.forecast.forecastday[dayIndex].hour
+
+    const selectedDayForecast = weatherData.forecast.forecastday[dayIndex].hour
+    const today = new Date()
+    const selectedDate = new Date(weatherData.forecast.forecastday[dayIndex].date_epoch * 1000)
+
+    // Check if the selected day is today (ignoring time for date comparison)
+    const isToday = today.getDate() === selectedDate.getDate() &&
+                    today.getMonth() === selectedDate.getMonth() &&
+                    today.getFullYear() === selectedDate.getFullYear()
+
+    if (isToday) {
+      // Filter out past hours for the current day
+      const now = Date.now() / 1000; // Current time in seconds epoch
+      return selectedDayForecast.filter(hour => hour.time_epoch >= now)
+    }
+
+    // For future days, show all hours
+    return selectedDayForecast
   }
 
   return (
@@ -402,7 +444,7 @@ export default function WeatherApp() {
                   placeholder={t.searchPlaceholder}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && searchLocation()}
+                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
                   className={`text-base sm:text-lg h-12 ${
                     theme === "dark"
                       ? "bg-slate-700/50 border-slate-600 focus:border-blue-400"
@@ -411,7 +453,7 @@ export default function WeatherApp() {
                 />
               </div>
               <Button
-                onClick={searchLocation}
+                onClick={handleSearch}
                 disabled={isSearching || !searchQuery.trim()}
                 className={`px-6 sm:px-8 h-12 w-full sm:w-auto font-semibold ${
                   theme === "dark"
@@ -475,7 +517,9 @@ export default function WeatherApp() {
                   theme === "dark" ? "border-blue-400" : "border-blue-600"
                 }`}
               ></div>
-              <p className={`text-lg ${theme === "dark" ? "text-slate-300" : "text-slate-600"}`}>{t.loading}</p>
+              <p className={`text-lg ${theme === "dark" ? "text-slate-300" : "text-slate-600"}`}>
+                {isSearching ? t.loading : t.fetchingLocation}
+              </p>
             </CardContent>
           </Card>
         )}
@@ -529,7 +573,7 @@ export default function WeatherApp() {
                   <div className="flex gap-6 sm:gap-8 text-sm sm:text-base ml-auto">
                     <div className="flex items-center gap-2">
                       <Wind className={`h-5 w-5 ${theme === "dark" ? "text-blue-400" : "text-blue-600"}`} />
-                      <span>{weatherData.current.wind_kph} kph</span> {/* Changed to kph */}
+                      <span>{weatherData.current.wind_kph} kph</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Droplets className={`h-5 w-5 ${theme === "dark" ? "text-blue-400" : "text-blue-600"}`} />
@@ -540,84 +584,100 @@ export default function WeatherApp() {
               </CardContent>
             </Card>
 
-            {/* 7-Day Forecast */}
-            <Card
-              className={`mb-6 shadow-xl ${
-                theme === "dark" ? "bg-slate-800/50 border-slate-700" : "bg-white/70 border-slate-200"
-              }`}
-            >
-              <CardHeader>
-                <CardTitle
-                  className={`text-xl sm:text-2xl ${theme === "dark" ? "text-purple-400" : "text-purple-600"}`}
-                >
-                  {t.sevenDayForecast}
-                </CardTitle>
-                <p className={`text-sm ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>{t.clickDay}</p>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[600px]">
-                    <thead>
-                      <tr className={`border-b ${theme === "dark" ? "border-slate-600" : "border-slate-300"}`}>
-                        <th className="text-left py-3 px-2 text-sm sm:text-base font-semibold">{t.date}</th>
-                        <th className="text-left py-3 px-2 text-sm sm:text-base font-semibold">{t.weather}</th>
-                        <th className="text-left py-3 px-2 text-sm sm:text-base font-semibold">{t.minTemp}</th>
-                        <th className="text-left py-3 px-2 text-sm sm:text-base font-semibold">{t.maxTemp}</th>
-                        <th className="text-left py-3 px-2 text-sm sm:text-base font-semibold">{t.description}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {weatherData.forecast.forecastday.slice(0, 7).map((day, index) => (
-                        <tr
-                          key={day.date_epoch}
-                          className={`border-b cursor-pointer transition-all duration-200 ${
-                            theme === "dark"
-                              ? `border-slate-700 hover:bg-slate-700/50 ${
-                                  selectedDay === index ? "bg-purple-900/30" : ""
-                                }`
-                              : `border-slate-200 hover:bg-blue-50 ${selectedDay === index ? "bg-purple-50" : ""}`
-                          }`}
-                          onClick={() => handleDayClick(index)}
-                        >
-                          <td className="py-3 px-2 font-medium text-sm sm:text-base">{formatDate(day.date_epoch)}</td>
-                          <td className="py-3 px-2">
-                            <img
-                              src={getWeatherIcon(day.day.condition.icon) || "/placeholder.svg"}
-                              alt={day.day.condition.text}
-                              className="w-10 h-10 sm:w-12 sm:h-12"
-                            />
-                          </td>
-                          <td className="py-3 px-2 text-sm sm:text-base">{Math.round(day.day.mintemp_c)}°C</td>
-                          <td className="py-3 px-2 text-sm sm:text-base">{Math.round(day.day.maxtemp_c)}°C</td>
-                          <td className="py-3 px-2 capitalize text-sm sm:text-base">{day.day.condition.text}</td>
+            {/* Conditional Rendering for Forecast Views */}
+            {viewMode === "7-day" && (
+              <Card
+                className={`mb-6 shadow-xl ${
+                  theme === "dark" ? "bg-slate-800/50 border-slate-700" : "bg-white/70 border-slate-200"
+                }`}
+              >
+                <CardHeader>
+                  <CardTitle
+                    className={`text-xl sm:text-2xl ${theme === "dark" ? "text-purple-400" : "text-purple-600"}`}
+                  >
+                    {t.sevenDayForecast}
+                  </CardTitle>
+                  <p className={`text-sm ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>
+                    {t.clickDay}
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[600px]">
+                      <thead>
+                        <tr className={`border-b ${theme === "dark" ? "border-slate-600" : "border-slate-300"}`}>
+                          <th className="text-left py-3 px-2 text-sm sm:text-base font-semibold">{t.date}</th>
+                          <th className="text-left py-3 px-2 text-sm sm:text-base font-semibold">{t.weather}</th>
+                          <th className="text-left py-3 px-2 text-sm sm:text-base font-semibold">{t.minTemp}</th>
+                          <th className="text-left py-3 px-2 text-sm sm:text-base font-semibold">{t.maxTemp}</th>
+                          <th className="text-left py-3 px-2 text-sm sm:text-base font-semibold">{t.description}</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
+                      </thead>
+                      <tbody>
+                        {weatherData.forecast.forecastday.map((day, index) => (
+                          <tr
+                            key={day.date_epoch}
+                            className={`border-b cursor-pointer transition-all duration-200 ${
+                              theme === "dark"
+                                ? `border-slate-700 hover:bg-slate-700/50`
+                                : `border-slate-200 hover:bg-blue-50`
+                            }`}
+                            onClick={() => handleDayClick(index)} // Always click to view hourly
+                          >
+                            <td className="py-3 px-2 font-medium text-sm sm:text-base">{formatDate(day.date_epoch)}</td>
+                            <td className="py-3 px-2">
+                              <img
+                                src={getWeatherIcon(day.day.condition.icon) || "/placeholder.svg"}
+                                alt={day.day.condition.text}
+                                className="w-10 h-10 sm:w-12 sm:h-12"
+                              />
+                            </td>
+                            <td className="py-3 px-2 text-sm sm:text-base">{Math.round(day.day.mintemp_c)}°C</td>
+                            <td className="py-3 px-2 text-sm sm:text-base">{Math.round(day.day.maxtemp_c)}°C</td>
+                            <td className="py-3 px-2 capitalize text-sm sm:text-base">{day.day.condition.text}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-            {/* Hourly Forecast */}
-            {selectedDay !== null && (
+            {viewMode === "hourly" && selectedDayIndex !== null && (
               <Card
                 className={`shadow-xl ${
                   theme === "dark" ? "bg-slate-800/50 border-slate-700" : "bg-white/70 border-slate-200"
                 }`}
               >
                 <CardHeader>
-                  <CardTitle
-                    className={`flex items-center gap-3 text-xl sm:text-2xl ${
-                      theme === "dark" ? "text-green-400" : "text-green-600"
-                    }`}
-                  >
-                    <Clock className="h-6 w-6" />
-                    {t.hourlyForecast} {formatDate(weatherData.forecast.forecastday[selectedDay].date_epoch)}
-                  </CardTitle>
+                  <div className="flex items-center justify-between mb-4">
+                    <CardTitle
+                      className={`flex items-center gap-3 text-xl sm:text-2xl ${
+                        theme === "dark" ? "text-green-400" : "text-green-600"
+                      }`}
+                    >
+                      <Clock className="h-6 w-6" />
+                      {t.hourlyForecast} {formatDate(weatherData.forecast.forecastday[selectedDayIndex].date_epoch)}
+                    </CardTitle>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setViewMode("7-day")}
+                      className={`font-semibold ${
+                        theme === "dark"
+                          ? "bg-slate-700 border-slate-600 hover:bg-slate-600 text-slate-200"
+                          : "bg-white border-slate-300 hover:bg-slate-50 text-slate-700"
+                      }`}
+                    >
+                      <ArrowLeft className="h-4 w-4 mr-2" />
+                      {t.returnTo7Day}
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {getHourlyDataForDay(selectedDay).map((hour) => (
+                    {getHourlyDataForDay(selectedDayIndex).map((hour) => (
                       <div
                         key={hour.time_epoch}
                         className={`p-4 border rounded-xl shadow-lg transition-transform hover:scale-105 ${
@@ -652,7 +712,7 @@ export default function WeatherApp() {
                           >
                             <div className="flex items-center justify-center gap-2">
                               <Wind className="h-4 w-4" />
-                              {hour.wind_kph} kph {/* Changed to kph */}
+                              {hour.wind_kph} kph
                             </div>
                             <div className="flex items-center justify-center gap-2">
                               <Droplets className="h-4 w-4" />
