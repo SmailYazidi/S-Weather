@@ -64,10 +64,10 @@ type ViewMode = "7-day" | "hourly"
 
 const translations = {
   en: {
-    appName: "S-Weather",
+    appName: "Weather",
     title: "Weather Forecast",
     subtitle: "Get detailed weather information for any location",
-    searchPlaceholder: "Enter city name (e.g., London, New York, Tokyo)",
+    searchPlaceholder: "Enter city name...",
     search: "Search",
     currentWeather: "Current Weather",
     sevenDayForecast: "7-Day Forecast",
@@ -89,10 +89,10 @@ const translations = {
     returnTo7Day: "Return to 7-Day Forecast",
   },
   ar: {
-    appName: "إس-ويذر",
+    appName: "الطقس",
     title: "توقعات الطقس",
     subtitle: "احصل على معلومات مفصلة عن الطقس لأي موقع",
-    searchPlaceholder: "أدخل اسم المدينة (مثل: لندن، نيويورك، طوكيو)",
+    searchPlaceholder: "أدخل اسم المدينة...",
     search: "بحث",
     currentWeather: "الطقس الحالي",
     sevenDayForecast: "توقعات 7 أيام",
@@ -114,10 +114,10 @@ const translations = {
     returnTo7Day: "العودة إلى توقعات 7 أيام",
   },
   fr: {
-    appName: "S-Météo",
+    appName: "Météo",
     title: "Prévisions Météo",
     subtitle: "Obtenez des informations météorologiques détaillées pour n'importe quel endroit",
-    searchPlaceholder: "Entrez le nom de la ville (ex: Londres, New York, Tokyo)",
+    searchPlaceholder: "Entrez le nom de la ville... ",
     search: "Rechercher",
     currentWeather: "Météo Actuelle",
     sevenDayForecast: "Prévisions 7 Jours",
@@ -366,13 +366,7 @@ export default function WeatherApp() {
                 >
                   {t.appName}
                 </h1>
-                <p
-                  className={`text-xs sm:text-sm ${
-                    theme === "dark" ? "text-slate-400" : "text-slate-600"
-                  } hidden sm:block`}
-                >
-                  Weather Forecast App
-                </p>
+               
               </div>
             </div>
 
@@ -439,61 +433,68 @@ export default function WeatherApp() {
           </p>
         </div>
 
-        {/* Search Section */}
-        <Card
-          className={`mb-6 sm:mb-8 shadow-xl ${
+ {/* Search Section */}
+<Card
+  className={`mb-6 sm:mb-8 shadow-xl ${
+    theme === "dark"
+      ? "bg-slate-800/50 border-slate-700 backdrop-blur-sm"
+      : "bg-white/70 border-slate-200 backdrop-blur-sm"
+  }`}
+>
+  <CardContent className="p-4 sm:p-6">
+    <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 flex-wrap">
+      {/* Search Input */}
+      <div className="flex-1 w-full">
+        <Input
+          type="text"
+          placeholder={t.searchPlaceholder}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+          className={`w-full text-base sm:text-lg h-12 sm:h-12 ${
             theme === "dark"
-              ? "bg-slate-800/50 border-slate-700 backdrop-blur-sm"
-              : "bg-white/70 border-slate-200 backdrop-blur-sm"
+              ? "bg-slate-700/50 border-slate-600 focus:border-blue-400"
+              : "bg-white border-slate-300 focus:border-blue-500"
           }`}
-        >
-          <CardContent className="p-4 sm:p-6">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1">
-                <Input
-                  type="text"
-                  placeholder={t.searchPlaceholder}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                  className={`text-base sm:text-lg h-12 ${
-                    theme === "dark"
-                      ? "bg-slate-700/50 border-slate-600 focus:border-blue-400"
-                      : "bg-white border-slate-300 focus:border-blue-500"
-                  }`}
-                />
-              </div>
-              <Button
-                onClick={handleSearch}
-                disabled={isSearching || !searchQuery.trim()}
-                className={`px-6 sm:px-8 h-12 w-full sm:w-auto font-semibold ${
-                  theme === "dark"
-                    ? "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                    : "bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
-                } text-white shadow-lg`}
-              >
-                {isSearching ? (
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                ) : (
-                  <Search className="h-5 w-5" />
-                )}
-                <span className="ml-2">{t.search}</span>
-              </Button>
-            </div>
+        />
+      </div>
 
-            {error && (
-              <div
-                className={`mt-4 p-4 rounded-lg border ${
-                  theme === "dark"
-                    ? "bg-red-900/30 border-red-800 text-red-300"
-                    : "bg-red-50 border-red-300 text-red-700"
-                }`}
-              >
-                {error}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {/* Search Button */}
+      <div className="w-full sm:w-auto">
+        <Button
+          onClick={handleSearch}
+          disabled={isSearching || !searchQuery.trim()}
+          className={`w-full sm:w-auto h-12 px-6 sm:px-8 flex items-center justify-center font-semibold ${
+            theme === "dark"
+              ? "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+              : "bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
+          } text-white shadow-lg transition-colors duration-200`}
+        >
+          {isSearching ? (
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+          ) : (
+            <Search className="h-5 w-5" />
+          )}
+          <span className="ml-2">{t.search}</span>
+        </Button>
+      </div>
+    </div>
+
+    {/* Error Message */}
+    {error && (
+      <div
+        className={`mt-4 p-4 rounded-lg border text-sm sm:text-base ${
+          theme === "dark"
+            ? "bg-red-900/30 border-red-800 text-red-300"
+            : "bg-red-50 border-red-300 text-red-700"
+        }`}
+      >
+        {error}
+      </div>
+    )}
+  </CardContent>
+</Card>
+
 
         {/* Location Info */}
         {locationData && (
@@ -557,103 +558,130 @@ export default function WeatherApp() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
-                  <div className="flex items-center gap-6">
-                    <img
-                      src={getWeatherIcon(weatherData.current.condition.icon) || "/placeholder.svg"}
-                      alt={weatherData.current.condition.text}
-                      className="w-16 h-16 sm:w-20 sm:h-20"
-                    />
-                    <div>
-                      <div
-                        className={`text-4xl sm:text-5xl font-bold ${
-                          theme === "dark" ? "text-blue-300" : "text-blue-700"
-                        }`}
-                      >
-                        {Math.round(weatherData.current.temp_c)}°C
-                      </div>
-                      <div
-                        className={`text-base sm:text-lg capitalize ${
-                          theme === "dark" ? "text-slate-300" : "text-slate-600"
-                        }`}
-                      >
-                        {weatherData.current.condition.text}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex gap-6 sm:gap-8 text-sm sm:text-base ml-auto">
-                    <div className="flex items-center gap-2">
-                      <Wind className={`h-5 w-5 ${theme === "dark" ? "text-blue-400" : "text-blue-600"}`} />
-                      <span>{weatherData.current.wind_kph} kph</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Droplets className={`h-5 w-5 ${theme === "dark" ? "text-blue-400" : "text-blue-600"}`} />
-                      <span>{weatherData.current.humidity}%</span>
-                    </div>
-                  </div>
-                </div>
+              <div className="grid grid-cols-1 sm:flex sm:flex-row items-start sm:items-center gap-y-6 gap-x-6 sm:gap-6">
+  {/* Temperature + Icon Block */}
+  <div className="flex items-center gap-4 sm:gap-6">
+    <img
+      src={getWeatherIcon(weatherData.current.condition.icon) || "/placeholder.svg"}
+      alt={weatherData.current.condition.text}
+      className="w-16 h-16 sm:w-20 sm:h-20"
+    />
+    <div>
+      <div
+        className={`text-4xl sm:text-5xl font-bold ${
+          theme === "dark" ? "text-blue-300" : "text-blue-700"
+        }`}
+      >
+        {Math.round(weatherData.current.temp_c)}°C
+      </div>
+      <div
+        className={`text-base sm:text-lg capitalize ${
+          theme === "dark" ? "text-slate-300" : "text-slate-600"
+        }`}
+      >
+        {weatherData.current.condition.text}
+      </div>
+    </div>
+  </div>
+
+  {/* Wind + Humidity Block */}
+  <div className="grid grid-cols-2 gap-4 sm:flex sm:gap-8 text-sm sm:text-base sm:ml-auto w-full sm:w-auto">
+    <div className="flex items-center gap-2 justify-center sm:justify-start">
+      <Wind className={`h-5 w-5 ${theme === "dark" ? "text-blue-400" : "text-blue-600"}`} />
+      <span>{weatherData.current.wind_kph} kph</span>
+    </div>
+    <div className="flex items-center gap-2 justify-center sm:justify-start">
+      <Droplets className={`h-5 w-5 ${theme === "dark" ? "text-blue-400" : "text-blue-600"}`} />
+      <span>{weatherData.current.humidity}%</span>
+    </div>
+  </div>
+</div>
+
               </CardContent>
             </Card>
 
-            {/* Conditional Rendering for Forecast Views */}
-            {viewMode === "7-day" && (
-              <Card
-                className={`mb-6 shadow-xl ${
-                  theme === "dark" ? "bg-slate-800/50 border-slate-700" : "bg-white/70 border-slate-200"
+     {viewMode === "7-day" && (
+  <Card
+    className={`mb-6 shadow-xl ${
+      theme === "dark" ? "bg-slate-800/50 border-slate-700" : "bg-white/70 border-slate-200"
+    }`}
+  >
+
+<CardHeader
+  className="w-full flex flex-col space-y-2 sm:space-y-2"
+  dir="rtl"
+  style={{ minWidth: 0 }}  // helps flex children to shrink/wrap properly
+>
+  <CardTitle
+    className={`w-full text-lg sm:text-2xl font-bold ${
+      theme === "dark" ? "text-purple-400" : "text-purple-600"
+    }`}
+    style={{ minWidth: 0 }}
+  >
+  {t.sevenDayForecast}
+  </CardTitle>
+  <CardTitle
+    className={`w-full text-sm sm:text-base leading-snug ${
+      theme === "dark" ? "text-slate-400" : "text-slate-600"
+    }`}
+    style={{
+      whiteSpace: "normal",
+      wordBreak: "break-word",
+      overflowWrap: "break-word",
+      direction: "rtl",
+      minWidth: 0,
+      maxWidth: "100%",
+    }}
+  >
+ {t.clickDay}
+  </CardTitle>
+</CardHeader>
+
+
+
+
+    <CardContent>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[540px] sm:min-w-[600px] text-sm sm:text-base">
+          <thead>
+            <tr className={`border-b ${theme === "dark" ? "border-slate-600" : "border-slate-300"}`}>
+              <th className="text-left py-3 px-2 font-semibold whitespace-nowrap">{t.date}</th>
+              <th className="text-left py-3 px-2 font-semibold whitespace-nowrap">{t.weather}</th>
+              <th className="text-left py-3 px-2 font-semibold whitespace-nowrap">{t.minTemp}</th>
+              <th className="text-left py-3 px-2 font-semibold whitespace-nowrap">{t.maxTemp}</th>
+              <th className="text-left py-3 px-2 font-semibold whitespace-nowrap">{t.description}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {weatherData.forecast.forecastday.map((day, index) => (
+              <tr
+                key={day.date_epoch}
+                className={`border-b cursor-pointer transition-colors ${
+                  theme === "dark"
+                    ? "border-slate-700 hover:bg-slate-700/50"
+                    : "border-slate-200 hover:bg-blue-50"
                 }`}
+                onClick={() => handleDayClick(index)}
               >
-                <CardHeader>
-                  <CardTitle
-                    className={`text-xl sm:text-2xl ${theme === "dark" ? "text-purple-400" : "text-purple-600"}`}
-                  >
-                    {t.sevenDayForecast}
-                  </CardTitle>
-                  <p className={`text-sm ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}>
-                    {t.clickDay}
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[600px]">
-                      <thead>
-                        <tr className={`border-b ${theme === "dark" ? "border-slate-600" : "border-slate-300"}`}>
-                          <th className="text-left py-3 px-2 text-sm sm:text-base font-semibold">{t.date}</th>
-                          <th className="text-left py-3 px-2 text-sm sm:text-base font-semibold">{t.weather}</th>
-                          <th className="text-left py-3 px-2 text-sm sm:text-base font-semibold">{t.minTemp}</th>
-                          <th className="text-left py-3 px-2 text-sm sm:text-base font-semibold">{t.maxTemp}</th>
-                          <th className="text-left py-3 px-2 text-sm sm:text-base font-semibold">{t.description}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {weatherData.forecast.forecastday.map((day, index) => (
-                          <tr
-                            key={day.date_epoch}
-                            className={`border-b cursor-pointer transition-all duration-200 ${
-                              theme === "dark"
-                                ? `border-slate-700 hover:bg-slate-700/50`
-                                : `border-slate-200 hover:bg-blue-50`
-                            }`}
-                            onClick={() => handleDayClick(index)} // Always click to view hourly
-                          >
-                            <td className="py-3 px-2 font-medium text-sm sm:text-base">{formatDate(day.date_epoch)}</td>
-                            <td className="py-3 px-2">
-                              <img
-                                src={getWeatherIcon(day.day.condition.icon) || "/placeholder.svg"}
-                                alt={day.day.condition.text}
-                                className="w-10 h-10 sm:w-12 sm:h-12"
-                              />
-                            </td>
-                            <td className="py-3 px-2 text-sm sm:text-base">{Math.round(day.day.mintemp_c)}°C</td>
-                            <td className="py-3 px-2 text-sm sm:text-base">{Math.round(day.day.maxtemp_c)}°C</td>
-                            <td className="py-3 px-2 capitalize text-sm sm:text-base">{day.day.condition.text}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                <td className="py-3 px-2 font-medium whitespace-nowrap">{formatDate(day.date_epoch)}</td>
+                <td className="py-3 px-2">
+                  <img
+                    src={getWeatherIcon(day.day.condition.icon) || "/placeholder.svg"}
+                    alt={day.day.condition.text}
+                    className="w-8 h-8 sm:w-10 sm:h-10"
+                  />
+                </td>
+                <td className="py-3 px-2 whitespace-nowrap">{Math.round(day.day.mintemp_c)}°C</td>
+                <td className="py-3 px-2 whitespace-nowrap">{Math.round(day.day.maxtemp_c)}°C</td>
+                <td className="py-3 px-2 capitalize whitespace-nowrap">{day.day.condition.text}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </CardContent>
+  </Card>
+)}
 
             {viewMode === "hourly" && selectedDayIndex !== null && (
               <Card
@@ -661,80 +689,114 @@ export default function WeatherApp() {
                   theme === "dark" ? "bg-slate-800/50 border-slate-700" : "bg-white/70 border-slate-200"
                 }`}
               >
-                <CardHeader>
-                  <div className="flex items-center justify-between mb-4">
-                    <CardTitle
-                      className={`flex items-center gap-3 text-xl sm:text-2xl ${
-                        theme === "dark" ? "text-green-400" : "text-green-600"
-                      }`}
-                    >
-                      <Clock className="h-6 w-6" />
-                      {t.hourlyForecast} {formatDate(weatherData.forecast.forecastday[selectedDayIndex].date_epoch)}
-                    </CardTitle>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setViewMode("7-day")}
-                      className={`font-semibold ${
-                        theme === "dark"
-                          ? "bg-slate-700 border-slate-600 hover:bg-slate-600 text-slate-200"
-                          : "bg-white border-slate-300 hover:bg-slate-50 text-slate-700"
-                      }`}
-                    >
-                      <ArrowLeft className="h-4 w-4 mr-2" />
-                      {t.returnTo7Day}
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                    {getHourlyDataForDay(selectedDayIndex).map((hour) => (
-                      <div
-                        key={hour.time_epoch}
-                        className={`p-4 border rounded-xl shadow-lg transition-transform hover:scale-105 ${
-                          theme === "dark"
-                            ? "bg-gradient-to-br from-slate-700/80 to-slate-800/80 border-slate-600"
-                            : "bg-gradient-to-br from-white to-blue-50 border-slate-200"
-                        }`}
-                      >
-                        <div className="text-center">
-                          <div className="font-semibold text-lg mb-3">{formatTime(hour.time_epoch)}</div>
-                          <img
-                            src={getWeatherIcon(hour.condition.icon) || "/placeholder.svg"}
-                            alt={hour.condition.text}
-                            className="w-12 h-12 mx-auto mb-3"
-                          />
-                          <div
-                            className={`text-2xl font-bold mb-2 ${
-                              theme === "dark" ? "text-blue-300" : "text-blue-700"
-                            }`}
-                          >
-                            {Math.round(hour.temp_c)}°C
-                          </div>
-                          <div
-                            className={`text-sm capitalize mb-4 ${
-                              theme === "dark" ? "text-slate-300" : "text-slate-600"
-                            }`}
-                          >
-                            {hour.condition.text}
-                          </div>
-                          <div
-                            className={`space-y-2 text-sm ${theme === "dark" ? "text-slate-400" : "text-slate-600"}`}
-                          >
-                            <div className="flex items-center justify-center gap-2">
-                              <Wind className="h-4 w-4" />
-                              {hour.wind_kph} kph
-                            </div>
-                            <div className="flex items-center justify-center gap-2">
-                              <Droplets className="h-4 w-4" />
-                              {hour.humidity}%
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
+<CardHeader>
+  <div
+    className={`grid gap-4 mb-4 ${
+      language === "ar" ? "rtl" : "ltr"
+    } lg:grid-cols-1 lg:justify-items-center`}
+  >
+    {/* First line: Return button */}
+    <div className="justify-self-center sm:justify-self-start lg:justify-self-center">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setViewMode("7-day")}
+        className={`font-semibold ${
+          theme === "dark"
+            ? "bg-slate-700 border-slate-600 hover:bg-slate-600 text-slate-200"
+            : "bg-white border-slate-300 hover:bg-slate-50 text-slate-700"
+        }`}
+      >
+        <ArrowLeft className="h-4 w-4 mr-1" />
+        {t.returnTo7Day}
+      </Button>
+    </div>
+
+    {/* Second line: navigation buttons with date */}
+    <div
+      className="flex justify-center items-center gap-4 text-lg font-bold text-slate-500 dark:text-slate-400
+                  lg:text-2xl"
+    >
+      {/* Next Day */}
+      <button
+        onClick={() =>
+          setSelectedDayIndex((prev) =>
+            Math.min(prev + 1, weatherData.forecast.forecastday.length - 1)
+          )
+        }
+        disabled={selectedDayIndex === weatherData.forecast.forecastday.length - 1}
+        className="px-2 py-1 disabled:opacity-30 lg:px-4 lg:py-2"
+        aria-label="Next Day"
+      >
+        {language === "ar" ? ">" : "<"}
+      </button>
+
+      {/* Date */}
+      <div className="whitespace-nowrap">
+        {formatDate(weatherData.forecast.forecastday[selectedDayIndex].date_epoch)}
+      </div>
+
+      {/* Previous Day */}
+      <button
+        onClick={() => setSelectedDayIndex((prev) => Math.max(prev - 1, 0))}
+        disabled={selectedDayIndex === 0}
+        className="px-2 py-1 disabled:opacity-30 lg:px-4 lg:py-2"
+        aria-label="Previous Day"
+      >
+        {language === "ar" ? "<" : ">"}
+      </button>
+    </div>
+  </div>
+</CardHeader>
+         <CardContent>
+  <div className="space-y-4">
+    {getHourlyDataForDay(selectedDayIndex).map((hour) => (
+      <div
+        key={hour.time_epoch}
+        className={`p-4 border rounded-xl shadow-lg transition-transform hover:scale-[1.02] ${
+          theme === "dark"
+            ? "bg-gradient-to-br from-slate-700/80 to-slate-800/80 border-slate-600"
+            : "bg-gradient-to-br from-white to-blue-50 border-slate-200"
+        }`}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4 text-sm sm:text-base">
+          {/* Time */}
+          <div className="font-semibold w-20">{formatTime(hour.time_epoch)}</div>
+
+          {/* Icon */}
+          <img
+            src={getWeatherIcon(hour.condition.icon) || "/placeholder.svg"}
+            alt={hour.condition.text}
+            className="w-8 h-8"
+          />
+
+          {/* Temperature */}
+          <div className={`font-bold text-lg sm:text-xl ${theme === "dark" ? "text-blue-300" : "text-blue-700"}`}>
+            {Math.round(hour.temp_c)}°C
+          </div>
+
+          {/* Condition Text */}
+          <div className={`capitalize truncate max-w-[100px] sm:max-w-[150px] ${theme === "dark" ? "text-slate-300" : "text-slate-600"}`}>
+            {hour.condition.text}
+          </div>
+
+          {/* Wind */}
+          <div className="flex items-center gap-1 w-24 justify-start">
+            <Wind className="h-4 w-4" />
+            {hour.wind_kph} kph
+          </div>
+
+          {/* Humidity */}
+          <div className="flex items-center gap-1 w-20 justify-start">
+            <Droplets className="h-4 w-4" />
+            {hour.humidity}%
+          </div>
+        </div>
+      </div>
+    ))}
+  </div>
+</CardContent>
+
               </Card>
             )}
           </>
