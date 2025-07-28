@@ -1,12 +1,12 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback,useRef } from "react"
 import { Search, MapPin, Thermometer, Wind, Droplets, Clock, Moon, Sun, Languages, Cloud, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
+import { ChevronLeft, ChevronRight } from "lucide-react"; 
 const API_KEY = "f89347a1df5a4451afb202028252807" // Your WeatherAPI.com API Key
 
 interface WeatherData {
@@ -178,6 +178,7 @@ export default function WeatherApp() {
   const [theme, setTheme] = useState<Theme>("light")
   const [language, setLanguage] = useState<Language>("en")
   const [viewMode, setViewMode] = useState<ViewMode>("7-day")
+const tableRef = useRef<HTMLDivElement>(null);
 
   const t = translations[language]
 
@@ -606,11 +607,10 @@ export default function WeatherApp() {
       theme === "dark" ? "bg-slate-800/50 border-slate-700" : "bg-white/70 border-slate-200"
     }`}
   >
-
 <CardHeader
   className="w-full flex flex-col space-y-2 sm:space-y-2"
-  dir="rtl"
-  style={{ minWidth: 0 }}  // helps flex children to shrink/wrap properly
+  dir={language === "ar" ? "rtl" : "ltr"}
+  style={{ minWidth: 0 }} // helps flex children to shrink/wrap properly
 >
   <CardTitle
     className={`w-full text-lg sm:text-2xl font-bold ${
@@ -618,7 +618,7 @@ export default function WeatherApp() {
     }`}
     style={{ minWidth: 0 }}
   >
-  {t.sevenDayForecast}
+    {t.sevenDayForecast}
   </CardTitle>
   <CardTitle
     className={`w-full text-sm sm:text-base leading-snug ${
@@ -628,58 +628,74 @@ export default function WeatherApp() {
       whiteSpace: "normal",
       wordBreak: "break-word",
       overflowWrap: "break-word",
-      direction: "rtl",
+      direction: language === "ar" ? "rtl" : "ltr", // Dynamically set direction
       minWidth: 0,
       maxWidth: "100%",
     }}
   >
- {t.clickDay}
+    {t.clickDay}
   </CardTitle>
 </CardHeader>
 
 
+<CardContent>
+  <div className="relative">
+    {/* Scroll buttons */}
+    <button
+      className="absolute left-0 top-1/2 -translate-y-1/2 bg-white dark:bg-slate-800 p-1 rounded-full shadow z-10"
+      onClick={() => tableRef.current?.scrollBy({ left: -200, behavior: "smooth" })}
+    >
+      <ChevronLeft className="w-6 h-6" />
+    </button>
 
+    <button
+      className="absolute right-0 top-1/2 -translate-y-1/2 bg-white dark:bg-slate-800 p-1 rounded-full shadow z-10"
+      onClick={() => tableRef.current?.scrollBy({ left: 200, behavior: "smooth" })}
+    >
+      <ChevronRight className="w-6 h-6" />
+    </button>
 
-    <CardContent>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[540px] sm:min-w-[600px] text-sm sm:text-base">
-          <thead>
-            <tr className={`border-b ${theme === "dark" ? "border-slate-600" : "border-slate-300"}`}>
-              <th className="text-left py-3 px-2 font-semibold whitespace-nowrap">{t.date}</th>
-              <th className="text-left py-3 px-2 font-semibold whitespace-nowrap">{t.weather}</th>
-              <th className="text-left py-3 px-2 font-semibold whitespace-nowrap">{t.minTemp}</th>
-              <th className="text-left py-3 px-2 font-semibold whitespace-nowrap">{t.maxTemp}</th>
-              <th className="text-left py-3 px-2 font-semibold whitespace-nowrap">{t.description}</th>
+    <div ref={tableRef} className="overflow-x-auto scroll-smooth">
+      <table className="w-full min-w-[540px] sm:min-w-[600px] text-sm sm:text-base">
+        <thead>
+          <tr className={`border-b ${theme === "dark" ? "border-slate-600" : "border-slate-300"}`}>
+            <th className="text-left py-3 px-2 font-semibold whitespace-nowrap">{t.date}</th>
+            <th className="text-left py-3 px-2 font-semibold whitespace-nowrap">{t.weather}</th>
+            <th className="text-left py-3 px-2 font-semibold whitespace-nowrap">{t.minTemp}</th>
+            <th className="text-left py-3 px-2 font-semibold whitespace-nowrap">{t.maxTemp}</th>
+            <th className="text-left py-3 px-2 font-semibold whitespace-nowrap">{t.description}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {weatherData.forecast.forecastday.map((day, index) => (
+            <tr
+              key={day.date_epoch}
+              className={`border-b cursor-pointer transition-colors ${
+                theme === "dark"
+                  ? "border-slate-700 hover:bg-slate-700/50"
+                  : "border-slate-200 hover:bg-blue-50"
+              }`}
+              onClick={() => handleDayClick(index)}
+            >
+              <td className="py-3 px-2 font-medium whitespace-nowrap">{formatDate(day.date_epoch)}</td>
+              <td className="py-3 px-2">
+                <img
+                  src={getWeatherIcon(day.day.condition.icon) || "/placeholder.svg"}
+                  alt={day.day.condition.text}
+                  className="w-8 h-8 sm:w-10 sm:h-10"
+                />
+              </td>
+              <td className="py-3 px-2 whitespace-nowrap">{Math.round(day.day.mintemp_c)}°C</td>
+              <td className="py-3 px-2 whitespace-nowrap">{Math.round(day.day.maxtemp_c)}°C</td>
+              <td className="py-3 px-2 capitalize whitespace-nowrap">{day.day.condition.text}</td>
             </tr>
-          </thead>
-          <tbody>
-            {weatherData.forecast.forecastday.map((day, index) => (
-              <tr
-                key={day.date_epoch}
-                className={`border-b cursor-pointer transition-colors ${
-                  theme === "dark"
-                    ? "border-slate-700 hover:bg-slate-700/50"
-                    : "border-slate-200 hover:bg-blue-50"
-                }`}
-                onClick={() => handleDayClick(index)}
-              >
-                <td className="py-3 px-2 font-medium whitespace-nowrap">{formatDate(day.date_epoch)}</td>
-                <td className="py-3 px-2">
-                  <img
-                    src={getWeatherIcon(day.day.condition.icon) || "/placeholder.svg"}
-                    alt={day.day.condition.text}
-                    className="w-8 h-8 sm:w-10 sm:h-10"
-                  />
-                </td>
-                <td className="py-3 px-2 whitespace-nowrap">{Math.round(day.day.mintemp_c)}°C</td>
-                <td className="py-3 px-2 whitespace-nowrap">{Math.round(day.day.maxtemp_c)}°C</td>
-                <td className="py-3 px-2 capitalize whitespace-nowrap">{day.day.condition.text}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </CardContent>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</CardContent>
+
   </Card>
 )}
 
