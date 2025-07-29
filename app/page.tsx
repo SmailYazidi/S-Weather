@@ -60,7 +60,7 @@ interface LocationData {
 
 type Language = "en" | "ar" | "fr"
 type Theme = "light" | "dark"
-type ViewMode = "7-day" | "hourly"
+type ViewMode = "14-day" | "hourly"
 
 const translations = {
   en: {
@@ -70,7 +70,7 @@ const translations = {
     searchPlaceholder: "Enter city name...",
     search: "Search",
     currentWeather: "Current Weather",
-    sevenDayForecast: "7-Day Forecast",
+    fourteenDayForecast: "14-Day Forecast",
     clickDay: "Click on any day to see hourly forecast",
     hourlyForecast: "Hourly Forecast for",
     date: "Date",
@@ -86,7 +86,7 @@ const translations = {
     weatherError: "Failed to fetch weather data. Please try again.",
     windSpeed: "Wind Speed",
     humidity: "Humidity",
-    returnTo7Day: "Return to 7-Day Forecast",
+    returnTo14Day: "Return to 14-Day Forecast",
   },
   ar: {
     appName: "الطقس",
@@ -95,7 +95,7 @@ const translations = {
     searchPlaceholder: "أدخل اسم المدينة...",
     search: "بحث",
     currentWeather: "الطقس الحالي",
-    sevenDayForecast: "توقعات 7 أيام",
+    fourteenDayForecast: "توقعات 14 يوم",
     clickDay: "انقر على أي يوم لرؤية التوقعات بالساعة",
     hourlyForecast: "التوقعات بالساعة لـ",
     date: "التاريخ",
@@ -111,7 +111,7 @@ const translations = {
     weatherError: "فشل في جلب بيانات الطقس. يرجى المحاولة مرة أخرى.",
     windSpeed: "سرعة الرياح",
     humidity: "الرطوبة",
-    returnTo7Day: "العودة إلى توقعات 7 أيام",
+    returnTo14Day: "العودة إلى توقعات 14 يوم",
   },
   fr: {
     appName: "Météo",
@@ -120,7 +120,7 @@ const translations = {
     searchPlaceholder: "Entrez le nom de la ville... ",
     search: "Rechercher",
     currentWeather: "Météo Actuelle",
-    sevenDayForecast: "Prévisions 7 Jours",
+    fourteenDayForecast: "Prévisions 14 Jours",
     clickDay: "Cliquez sur n'importe quel jour pour voir les prévisions horaires",
     hourlyForecast: "Prévisions Horaires pour",
     date: "Date",
@@ -136,7 +136,7 @@ const translations = {
     weatherError: "Échec de récupération des données météo. Veuillez réessayer.",
     windSpeed: "Vitesse du Vent",
     humidity: "Humidité",
-    returnTo7Day: "Retour aux prévisions 7 jours",
+    returnTo14Day: "Retour aux prévisions 14 jours",
   },
 }
 
@@ -175,7 +175,7 @@ export default function WeatherApp() {
   const [error, setError] = useState("")
   const [theme, setTheme] = useState<Theme>("light")
   const [language, setLanguage] = useState<Language>("en")
-  const [viewMode, setViewMode] = useState<ViewMode>("7-day")
+  const [viewMode, setViewMode] = useState<ViewMode>("14-day")
   const tableRef = useRef<HTMLDivElement>(null);
   const [hasSearched, setHasSearched] = useState(false);
 
@@ -213,11 +213,11 @@ export default function WeatherApp() {
     setIsSearching(false);
     setError("");
     setSelectedDayIndex(null);
-    setViewMode("7-day");
+    setViewMode("14-day");
 
     try {
       const weatherResponse = await fetch(
-        `https://api.weatherapi.com/v1/forecast.json?key=${API_KEY}&q=${encodeURIComponent(query)}&days=7&aqi=no&alerts=no&lang=${language}`
+        `https://api.weatherapi.com/v1/forecast.json?key=${API_KEY}&q=${encodeURIComponent(query)}&days=14&aqi=no&alerts=no&lang=${language}`
       );
 
       if (!weatherResponse.ok) {
@@ -587,7 +587,7 @@ export default function WeatherApp() {
               </CardContent>
             </Card>
 
-            {viewMode === "7-day" && (
+            {viewMode === "14-day" && (
               <Card
                 className={`mb-6 shadow-xl ${
                   theme === "dark" ? "bg-slate-800/50 border-slate-700" : "bg-white/70 border-slate-200"
@@ -604,7 +604,7 @@ export default function WeatherApp() {
                     }`}
                     style={{ minWidth: 0 }}
                   >
-                    {t.sevenDayForecast}
+                    {t.fourteenDayForecast}
                   </CardTitle>
                   <CardTitle
                     className={`w-full text-sm sm:text-base leading-snug ${
@@ -700,7 +700,7 @@ export default function WeatherApp() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setViewMode("7-day")}
+                        onClick={() => setViewMode("14-day")}
                         className={`font-semibold ${
                           theme === "dark"
                             ? "bg-slate-700 border-slate-600 hover:bg-slate-600 text-slate-200"
@@ -708,7 +708,7 @@ export default function WeatherApp() {
                         }`}
                       >
                         <ArrowLeft className="h-4 w-4 mr-1" />
-                        {t.returnTo7Day}
+                        {t.returnTo14Day}
                       </Button>
                     </div>
 
