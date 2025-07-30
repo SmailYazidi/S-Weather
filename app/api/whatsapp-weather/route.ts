@@ -1,15 +1,13 @@
 import { NextResponse } from 'next/server';
 import { Twilio } from 'twilio';
 
-export async function POST() {
+export async function GET() {
   try {
-const accountSid = process.env.TWILIO_ACCOUNT_SID!;
-const authToken = process.env.TWILIO_AUTH_TOKEN!;
-const weatherApiKey = process.env.WEATHER_API_KEY!;
+    const accountSid = process.env.TWILIO_ACCOUNT_SID!;
+    const authToken = process.env.TWILIO_AUTH_TOKEN!;
+    const weatherApiKey = process.env.WEATHER_API_KEY!;
 
     const client = new Twilio(accountSid, authToken);
-
-
 
     const city = 'Ain Leuh';  // هنا المدينة المعدلة
     const res = await fetch(
